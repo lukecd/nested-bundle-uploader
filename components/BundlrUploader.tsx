@@ -91,7 +91,10 @@ export const BundlrUploader: React.FC = () => {
 			const bundle = await bundleItems(preppedFiles, ephemeralSigner);
 			console.log("bundle=", bundle);
 			const manifestId = await uploadBundle(bundle);
-			console.log("Manifest URL=", "https://arweave.net/" + manifestId);
+			console.log("Files uploaded");
+			for (let i = 0; i < files.length; i++) {
+				console.log(`File ${i} URL is https://arweave.net/${manifestId}/${files[i].name}`);
+			}
 		} catch (e) {
 			console.log("Error on upload, ", e);
 		}
