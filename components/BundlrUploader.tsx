@@ -7,7 +7,7 @@ import { getBundlr } from "@/utils/getBundlr";
 import fileReaderStream from "filereader-stream";
 
 import type { DataItem } from "arbundles";
-import { createData, bundleAndSignData } from "arbundles";
+import { createData, bundleAndSignData, ArweaveSigner, Arweave, Bundle } from "arbundles";
 
 export const BundlrUploader: React.FC = () => {
 	const [files, setFiles] = useState<File[]>([]);
@@ -21,16 +21,16 @@ export const BundlrUploader: React.FC = () => {
 		}
 	};
 
-	const prepFiles = async (files: File[]): Promise<Map<string, DataItem>> => {
+	const prepFiles = async (files: File[], ephemeralSigner: ArweaveSigner): Promise<Map<string, DataItem>> => {
 		const items: [string, DataItem][] = await Promise.all(
 			files.map(async (file) => {
-				return [file.name, await prepFile(file)];
+				return [file.name, await prepFile(file, ephemeralSigner)];
 			}),
 		);
 		return new Map(items);
 	};
 
-	const prepFile = async (file: File): Promise<DataItem> => {
+	const prepFile = async (file: File, ephemeralSigner: ArweaveSigner): Promise<DataItem> => {
 		console.log("prepping: ", file);
 		let item = createData(new Uint8Array(await file.arrayBuffer()), ephemeralSigner, {
 			tags: [{ name: "Content-Type", value: file.type }],
@@ -39,7 +39,7 @@ export const BundlrUploader: React.FC = () => {
 		return item;
 	};
 
-	const bundle = async (itemMap: Map<string, DataItem>): Promise<Bundle> => {
+	const bundle = async (itemMap: Map<string, DataItem>, ephemeralSigner: ArweaveSigner): Promise<Bundle> => {
 		const bundlr = await getBundlr();
 
 		const pathMap: Map<string, string> = new Map([...itemMap].map(([path, item]) => [path, item.id]));
@@ -86,9 +86,14 @@ export const BundlrUploader: React.FC = () => {
 		const bundlr = await getBundlr();
 		console.log(bundlr);
 		try {
-			const preppedFiles = await prepFiles(files);
+			console.log("about to generate ephemeralSigner");
+
+			const ephemeralSigner = new ArweaveSigner(await Arweave.crypto.generateJWK());
+			console.log("ephemeralSigner=", ephemeralSigner);
+
+			const preppedFiles = await prepFiles(files, ephemeralSigner);
 			console.log("preppedFiles=", preppedFiles);
-			const myBundlr = await bundle(preppedFiles);
+			const myBundlr = await bundle(preppedFiles, ephemeralSigner);
 			console.log("myBundlr=", myBundlr);
 		} catch (e) {
 			console.log("Error on upload, ", e);
