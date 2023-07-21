@@ -6,8 +6,10 @@ import Spinner from "./Spinner";
 import { getBundlr } from "@/utils/getBundlr";
 import fileReaderStream from "filereader-stream";
 
-import type { DataItem } from "arbundles";
-import { createData, bundleAndSignData, ArweaveSigner, Arweave, Bundle } from "arbundles";
+import type { DataItem, Bundle } from "arbundles";
+import { createData, ArweaveSigner, bundleAndSignData } from "arbundles";
+
+import Arweave from "arweave";
 
 export const BundlrUploader: React.FC = () => {
 	const [files, setFiles] = useState<File[]>([]);
@@ -95,6 +97,8 @@ export const BundlrUploader: React.FC = () => {
 			console.log("preppedFiles=", preppedFiles);
 			const myBundlr = await bundle(preppedFiles, ephemeralSigner);
 			console.log("myBundlr=", myBundlr);
+			const manifestId = await uploadBundle(myBundlr);
+			console.log("Manifest URL=", "https://arweave.net/" + manifestId);
 		} catch (e) {
 			console.log("Error on upload, ", e);
 		}
