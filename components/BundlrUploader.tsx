@@ -23,60 +23,54 @@ export const BundlrUploader: React.FC = () => {
 		}
 	};
 
-	const prepFiles = async (files: File[], ephemeralSigner: ArweaveSigner): Promise<Map<string, DataItem>> => {
+	async function prepFiles(files: File[], ephemeralSigner: ArweaveSigner): Promise<Map<string, DataItem>> {
 		const items: [string, DataItem][] = await Promise.all(
 			files.map(async (file) => {
 				return [file.name, await prepFile(file, ephemeralSigner)];
 			}),
 		);
 		return new Map(items);
-	};
+	}
 
-	const prepFile = async (file: File, ephemeralSigner: ArweaveSigner): Promise<DataItem> => {
-		console.log("prepping: ", file);
-		let item = createData(new Uint8Array(await file.arrayBuffer()), ephemeralSigner, {
+	async function prepFile(file: File, ephemeralSigner: ArweaveSigner): Promise<DataItem> {
+		const item = createData(file.data, ephemeralSigner, {
 			tags: [{ name: "Content-Type", value: file.type }],
 		});
 		await item.sign(ephemeralSigner);
 		return item;
-	};
+	}
 
-	const bundleItems = async (itemMap: Map<string, DataItem>, ephemeralSigner: ArweaveSigner): Promise<Bundle> => {
-		const pathMap = new Map<string, string>([...itemMap].map(([path, item]) => [path, item.id]));
+	async function bundleItems(itemMap: Map<string, DataItem>, ephemeralSigner: ArweaveSigner): Promise<Bundle> {
 		const bundlr = await getBundlr();
 
-		const manifestItem = await createData(
-			(
-				await bundlr.uploader.generateManifest({ items: pathMap })
-			).manifest,
-			ephemeralSigner,
-			{
-				tags: [
-					{ name: "Type", value: "manifest" },
-					{ name: "Content-Type", value: "application/x.arweave-manifest+json" },
-				],
-			},
-		);
+		const pathMap = new Map<string, string>([...itemMap].map(([path, item]) => [path, item.id]));
+		const manifest = await bundlr.uploader.generateManifest({ items: pathMap });
+		const manifestItem = await createData(JSON.stringify(manifest), ephemeralSigner, {
+			tags: [
+				{ name: "Type", value: "manifest" },
+				{ name: "Content-Type", value: "application/x.arweave-manifest+json" },
+			],
+		});
 		const bundle = await bundleAndSignData([...itemMap.values(), manifestItem], ephemeralSigner);
 		return bundle;
-	};
+	}
 
-	const uploadBundle = async (bundle: Bundle): Promise<string> => {
+	async function uploadBundle(bundle: Bundle): Promise<string> {
 		const bundlr = await getBundlr();
 
-		const tx = await bundlr.createTransaction(bundle.getRaw(), {
+		const tx = bundlr.createTransaction(bundle.getRaw(), {
 			tags: [
 				{ name: "Bundle-Format", value: "binary" },
 				{ name: "Bundle-Version", value: "2.0.0" },
 			],
 		});
 		await tx.sign();
-		let res = await tx.upload();
-		// console.log(res);
-		let manifestId = bundle.items[bundle.items.length - 1].id;
-		console.log(`Manifest ID: ${manifestId}`);
+		const res = await tx.upload();
+		console.log(res);
+		const manifestId = bundle.items[bundle.items.length - 1].id;
+		//   console.log(`Manifest ID: ${manifestId}`);
 		return manifestId;
-	};
+	}
 
 	const handleUpload = async () => {
 		setMessage("");
@@ -85,8 +79,7 @@ export const BundlrUploader: React.FC = () => {
 			return;
 		}
 		setTxProcessing(true);
-		const bundlr = await getBundlr();
-		console.log(bundlr);
+
 		try {
 			console.log("about to generate ephemeralSigner");
 
@@ -95,9 +88,9 @@ export const BundlrUploader: React.FC = () => {
 
 			const preppedFiles = await prepFiles(files, ephemeralSigner);
 			console.log("preppedFiles=", preppedFiles);
-			const bundlr = await bundleItems(preppedFiles, ephemeralSigner);
-			console.log("bundlr=", bundlr);
-			const manifestId = await uploadBundle(bundlr);
+			const bundle = await bundleItems(preppedFiles, ephemeralSigner);
+			console.log("bundle=", bundle);
+			const manifestId = await uploadBundle(bundle);
 			console.log("Manifest URL=", "https://arweave.net/" + manifestId);
 		} catch (e) {
 			console.log("Error on upload, ", e);
