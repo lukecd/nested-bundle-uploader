@@ -33,7 +33,7 @@ export const BundlrUploader: React.FC = () => {
 	}
 
 	async function prepFile(file: File, ephemeralSigner: ArweaveSigner): Promise<DataItem> {
-		const item = createData(file.data, ephemeralSigner, {
+		const item = createData(new Uint8Array(await file.arrayBuffer()), ephemeralSigner, {
 			tags: [{ name: "Content-Type", value: file.type }],
 		});
 		await item.sign(ephemeralSigner);
